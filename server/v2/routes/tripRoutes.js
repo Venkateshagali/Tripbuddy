@@ -76,7 +76,7 @@ router.post("/:tripId/invite", authMiddleware, requireTripOwner, async (req, res
       [inviteCode, expiresAt, req.tripId]
     );
 
-    return res.json({ inviteCode, inviteLink: `http://localhost:5173/join/${inviteCode}`, expiresAt });
+    return res.json({ inviteCode, inviteLink: `${(process.env.FRONTEND_URL || "http://localhost:5173")}/join/${inviteCode}`, expiresAt });
   } catch (err) {
     return res.status(500).json({ message: "Failed to generate invite", error: err.message });
   }

@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import api from "../lib/api";
 import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
@@ -16,7 +16,7 @@ export default function Dashboard() {
   const headers = useMemo(() => ({ authorization: token }), [token]);
 
   const fetchTrips = async () => {
-    const res = await axios.get("http://localhost:5000/api/trips/my", { headers });
+    const res = await api.get("/api/trips/my", { headers });
     setTrips(res.data);
   };
 
@@ -33,8 +33,8 @@ export default function Dashboard() {
     if (!tripName) return alert("Trip name is required");
     setLoading(true);
     try {
-      await axios.post(
-        "http://localhost:5000/api/trips/create",
+      await api.post(
+        "/api/trips/create",
         { name: tripName, destination, startDate, endDate, currency: "INR" },
         { headers }
       );
@@ -54,7 +54,7 @@ export default function Dashboard() {
     if (!inviteCode) return alert("Enter invite code");
     setLoading(true);
     try {
-      await axios.post("http://localhost:5000/api/trips/join", { inviteCode }, { headers });
+      await api.post("/api/trips/join", { inviteCode }, { headers });
       setInviteCode("");
       await fetchTrips();
     } catch (err) {

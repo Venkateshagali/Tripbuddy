@@ -1,15 +1,16 @@
 ﻿const mysql = require("mysql2");
 
 const pool = mysql.createPool({
-    host: "localhost",
-    user: "root",
-    password: "",
-    database: "tripbuddy",
-    dateStrings: true,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    multipleStatements: true
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
+  database: process.env.DB_NAME || "tripbuddy",
+  port: Number(process.env.DB_PORT || 3306),
+  dateStrings: true,
+  waitForConnections: true,
+  connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
+  queueLimit: 0,
+  multipleStatements: true
 });
 
 module.exports = pool;

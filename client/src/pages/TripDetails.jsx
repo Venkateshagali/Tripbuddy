@@ -1,6 +1,6 @@
 ﻿import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import api from "../lib/api";
 
 const TABS = ["Itinerary & Map", "Expenses", "Members", "Settlements", "Plan"];
 
@@ -67,13 +67,13 @@ export default function TripDetails() {
   };
 
   const fetchMe = async () => {
-    const res = await axios.get("http://localhost:5000/api/auth/me", authHeader);
+    const res = await api.get("/api/auth/me", authHeader);
     setMe(res.data);
     setMyUpiId(res.data?.upi_id || "");
   };
 
   const fetchTrip = async () => {
-    const res = await axios.get(`http://localhost:5000/api/trips/${id}`, authHeader);
+    const res = await api.get(`/api/trips/${id}`, authHeader);
     setTrip(res.data.trip);
     setMembers(res.data.members);
     setMembership(res.data.membership || null);
@@ -85,19 +85,19 @@ export default function TripDetails() {
   };
 
   const fetchExpenses = async () => {
-    const res = await axios.get(`http://localhost:5000/api/expenses/trip/${id}`, authHeader);
+    const res = await api.get(`/api/expenses/trip/${id}`, authHeader);
     setExpenses(res.data);
   };
 
   const fetchSettlement = async () => {
-    const res = await axios.get(`http://localhost:5000/api/expenses/settlement/${id}`, authHeader);
+    const res = await api.get(`/api/expenses/settlement/${id}`, authHeader);
     setSettlement(res.data.transactions || []);
     setBalances(res.data.balances || []);
   };
 
   const fetchPayments = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/payments/${id}`, authHeader);
+      const res = await api.get(`/api/payments/${id}`, authHeader);
       setPayments(res.data || []);
     } catch (_err) {
       setPayments([]);
@@ -105,27 +105,27 @@ export default function TripDetails() {
   };
 
   const fetchItinerary = async () => {
-    const res = await axios.get(`http://localhost:5000/api/itinerary/${id}`, authHeader);
+    const res = await api.get(`/api/itinerary/${id}`, authHeader);
     setItinerary(res.data);
   };
 
   const fetchTrains = async () => {
-    const res = await axios.get(`http://localhost:5000/api/train/${id}`, authHeader);
+    const res = await api.get(`/api/train/${id}`, authHeader);
     setTrains(res.data);
   };
 
   const fetchVehicle = async () => {
-    const res = await axios.get(`http://localhost:5000/api/vehicle/${id}`, authHeader);
+    const res = await api.get(`/api/vehicle/${id}`, authHeader);
     setVehicle(Array.isArray(res.data) ? res.data[0] : res.data);
   };
 
   const fetchBooking = async () => {
-    const res = await axios.get(`http://localhost:5000/api/booking/${id}`, authHeader);
+    const res = await api.get(`/api/booking/${id}`, authHeader);
     setBooking(Array.isArray(res.data) ? res.data[0] : res.data);
   };
 
   const fetchSummary = async () => {
-    const res = await axios.get(`http://localhost:5000/api/expenses/summary/${id}`, authHeader);
+    const res = await api.get(`/api/expenses/summary/${id}`, authHeader);
     setSummary(res.data);
   };
 
@@ -133,7 +133,7 @@ export default function TripDetails() {
     setSelectedMember(member);
     setLoadingMember(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/expenses/member/${id}/${member.id}`, authHeader);
+      const res = await api.get(`/api/expenses/member/${id}/${member.id}`, authHeader);
       setMemberDetails(res.data);
     } finally {
       setLoadingMember(false);
@@ -143,7 +143,7 @@ export default function TripDetails() {
   const saveMyUpi = async () => {
     setSavingUpi(true);
     try {
-      await axios.put("http://localhost:5000/api/auth/me/upi", { upiId: myUpiId || null }, authHeader);
+      await api.put("/api/auth/me/upi", { upiId: myUpiId || null }, authHeader);
       await fetchMe();
       await fetchTrip();
     } finally {
@@ -158,8 +158,8 @@ export default function TripDetails() {
       ? selectedMembers
       : selectedMembers.filter((uid) => Number(uid) !== Number(payerUserId));
 
-    await axios.post(
-      "http://localhost:5000/api/expenses/add",
+    await api.post(
+      "/api/expenses/add",
       {
         tripId: Number(id),
         title,
@@ -180,8 +180,8 @@ export default function TripDetails() {
   };
 
   const handleMarkPaid = async (tx) => {
-    await axios.post(
-      "http://localhost:5000/api/expenses/payment",
+    await api.post(
+      "/api/expenses/payment",
       { tripId: Number(id), toUserId: Number(tx.toUserId), amount: Number(tx.amount), notes: "Paid directly" },
       authHeader
     );
@@ -189,8 +189,8 @@ export default function TripDetails() {
   };
 
   const handleConfirmReceived = async (paymentId) => {
-    await axios.post(
-      "http://localhost:5000/api/expenses/payment/confirm",
+    await api.post(
+      "/api/expenses/payment/confirm",
       { paymentId: Number(paymentId) },
       authHeader
     );
@@ -204,8 +204,8 @@ export default function TripDetails() {
     if (!nextAmount) return;
     const nextCategory = prompt("Category (Travel/Food/Stay/Activity/Other)", expense.category || "Other");
 
-    await axios.put(
-      `http://localhost:5000/api/expenses/${expense.id}`,
+    await api.put(
+      `/api/expenses/${expense.id}`,
       { title: nextTitle, amount: Number(nextAmount), category: nextCategory || expense.category },
       authHeader
     );
@@ -214,7 +214,7 @@ export default function TripDetails() {
 
   const handleDeleteExpense = async (expense) => {
     if (!confirm(`Delete expense \"${expense.title}\"?`)) return;
-    await axios.delete(`http://localhost:5000/api/expenses/${expense.id}`, authHeader);
+    await api.delete(`/api/expenses/${expense.id}`, authHeader);
     await loadAllData();
   };
 
@@ -258,8 +258,8 @@ export default function TripDetails() {
     if (!nextTitle) return;
     const nextDescription = prompt("Route (use -> between places)", "goSTOPS Goa Vagator PLUS -> Calangute Beach");
     const nextLocation = prompt("Area", "Goa");
-    await axios.post(
-      `http://localhost:5000/api/itinerary/${id}`,
+    await api.post(
+      `/api/itinerary/${id}`,
       {
         dayNumber: Number(dayNumber),
         title: nextTitle,
@@ -279,8 +279,8 @@ export default function TripDetails() {
     if (!nextTitle) return;
     const nextDescription = prompt("Route (use -> between places)", item.description || "");
     const nextLocation = prompt("Area", item.location || "Goa");
-    await axios.put(
-      `http://localhost:5000/api/itinerary/${id}/${item.id}`,
+    await api.put(
+      `/api/itinerary/${id}/${item.id}`,
       {
         dayNumber: Number(dayNumber),
         title: nextTitle,
@@ -295,7 +295,7 @@ export default function TripDetails() {
   const handleDeleteItinerary = async (item) => {
     if (!isOwner) return;
     if (!confirm(`Delete Day ${item.day_number}: ${item.title}?`)) return;
-    await axios.delete(`http://localhost:5000/api/itinerary/${id}/${item.id}`, authHeader);
+    await api.delete(`/api/itinerary/${id}/${item.id}`, authHeader);
     await fetchItinerary();
   };
 
@@ -309,8 +309,8 @@ export default function TripDetails() {
     const arrival = prompt("Arrival", train.arrival || "");
     const travelDate = prompt("Travel date (YYYY-MM-DD)", String(train.travel_date || "").slice(0, 10));
     const costPerPerson = prompt("Cost per person", String(train.cost_per_person || 0));
-    await axios.put(
-      `http://localhost:5000/api/train/${id}/${train.id}`,
+    await api.put(
+      `/api/train/${id}/${train.id}`,
       { direction, trainNumber, departure, arrival, travelDate, costPerPerson: Number(costPerPerson || 0) },
       authHeader
     );
@@ -326,8 +326,8 @@ export default function TripDetails() {
     const deposit = prompt("Deposit", String(vehicle.deposit || 0));
     const advancePaid = prompt("Advance paid", String(vehicle.advance_paid || 0));
     const remainingBalance = prompt("Remaining balance", String(vehicle.remaining_balance || 0));
-    await axios.put(
-      `http://localhost:5000/api/vehicle/${id}/${vehicle.id}`,
+    await api.put(
+      `/api/vehicle/${id}/${vehicle.id}`,
       { vehicleName, rentAmount: Number(rentAmount || 0), pickupCharge: Number(pickupCharge || 0), deposit: Number(deposit || 0), advancePaid: Number(advancePaid || 0), remainingBalance: Number(remainingBalance || 0) },
       authHeader
     );
@@ -343,8 +343,8 @@ export default function TripDetails() {
     const checkinDate = prompt("Check-in (YYYY-MM-DD HH:mm:ss)", String(booking.checkin_date || "").slice(0, 19).replace("T", " "));
     const checkoutDate = prompt("Check-out (YYYY-MM-DD HH:mm:ss)", String(booking.checkout_date || "").slice(0, 19).replace("T", " "));
     const guests = prompt("Guests", String(booking.guests || 1));
-    await axios.put(
-      `http://localhost:5000/api/booking/${id}/${booking.id}`,
+    await api.put(
+      `/api/booking/${id}/${booking.id}`,
       { propertyName, bookingCode, amountPaid: Number(amountPaid || 0), checkinDate, checkoutDate, guests: Number(guests || 1) },
       authHeader
     );

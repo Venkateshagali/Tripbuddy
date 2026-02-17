@@ -1,5 +1,5 @@
-import { useState } from "react";
-import axios from "axios";
+﻿import { useState } from "react";
+import api from "../lib/api";
 import { useNavigate } from "react-router-dom";
 import { signInWithPopup, signInWithRedirect } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
@@ -13,8 +13,8 @@ export default function Login() {
   const handleLogin = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(
-        "http://localhost:5000/api/auth/login",
+      const res = await api.post(
+        "/api/auth/login",
         { email, password }
       );
 
@@ -33,7 +33,7 @@ export default function Login() {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
-      const res = await axios.post("http://localhost:5000/api/auth/google", {
+      const res = await api.post("/api/auth/google", {
         name: user.displayName,
         email: user.email,
         googleUid: user.uid,
