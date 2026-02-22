@@ -223,6 +223,22 @@ export default function TripDetails() {
     await loadAllData();
   };
 
+  const handleEditMemberEmail = async (member) => {
+    if (!isOwner || !member) return;
+    const nextEmail = prompt(`Update email for ${member.name}`, member.email || "");
+    if (nextEmail === null) return;
+    try {
+      await api.put(`/api/trips/${id}/members/${member.id}/email`, { email: nextEmail.trim() }, authHeader);
+      await fetchTrip();
+      if (selectedMember && Number(selectedMember.id) === Number(member.id)) {
+        setSelectedMember((prev) => ({ ...prev, email: nextEmail.trim() || null }));
+      }
+      alert("Member email updated");
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to update member email");
+    }
+  };
+
   const handleEditExpense = async (expense) => {
     const nextTitle = prompt("Expense title", expense.title);
     if (!nextTitle) return;
@@ -556,6 +572,21 @@ export default function TripDetails() {
                 {loadingMember ? <p>Loading member details...</p> : null}
                 {memberDetails && !loadingMember ? (
                   <div className="space-y-4">
+                    {selectedMember ? (
+                      <div className="rounded-lg border border-[#eadfcf] bg-[#fffdf8] p-3 text-sm">
+                        <p>
+                          <span className="font-semibold">Email:</span> {selectedMember.email || "Not set"}
+                        </p>
+                        {isOwner ? (
+                          <button
+                            onClick={() => handleEditMemberEmail(selectedMember)}
+                            className="mt-2 rounded bg-amber-100 px-3 py-1 text-xs font-semibold hover:bg-amber-200"
+                          >
+                            Edit Email
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                       <StatMini label="Paid" value={`INR ${Number(memberDetails.totals.paid).toFixed(2)}`} />
                       <StatMini label="Shared Due" value={`INR ${Number(memberDetails.totals.shared).toFixed(2)}`} />
@@ -606,6 +637,28 @@ export default function TripDetails() {
                 <StatMini label="My Receivable" value={`INR ${myReceivable.toFixed(2)}`} />
                 <StatMini label="Total Pending" value={`INR ${Number(totalPendingAmount || 0).toFixed(2)}`} />
               </div>
+              <div className="mb-4 rounded-lg border border-[#eadfcf] bg-[#fffdf8] p-3">
+                <p className="mb-2 text-sm font-semibold">My Pending Dues</p>
+                {settlement.filter((tx) => Number(tx.fromUserId) === Number(me?.id)).length === 0 ? (
+                  <p className="text-xs text-gray-500">No pending dues for you.</p>
+                ) : (
+                  settlement
+                    .filter((tx) => Number(tx.fromUserId) === Number(me?.id))
+                    .map((tx, i) => (
+                      <div key={`mine-${i}`} className="mb-2 rounded bg-amber-50 px-3 py-2 text-sm">
+                        <p>
+                          You pay {tx.to}: INR {Number(tx.amount).toFixed(2)}
+                        </p>
+                        <button
+                          onClick={() => handleMarkPaid(tx)}
+                          className="mt-2 rounded bg-[#efe2d1] px-3 py-1 text-xs font-semibold text-[#6b3e26] hover:bg-[#e4d3be]"
+                        >
+                          Mark Paid
+                        </button>
+                      </div>
+                    ))
+                )}
+              </div>
               {settlement.length === 0 ? <p className="text-sm text-gray-500">No pending settlements.</p> : null}
               {settlement.map((tx, i) => {
                 const payee = memberById.get(Number(tx.toUserId));
@@ -630,7 +683,7 @@ export default function TripDetails() {
               {payments.map((p) => (
                 <div key={p.id} className="mb-2 rounded-lg border border-[#eadfcf] bg-[#fffdf8] px-3 py-2 text-sm">
                   <p>{p.from_name} {"->"} {p.to_name}: INR {Number(p.amount).toFixed(2)} ({p.status})</p>
-                  {p.status === "marked_paid" && membership?.role === "owner" ? (
+                  {membership?.role === "owner" && p.status !== "confirmed" ? (
                     <button
                       onClick={() => handleConfirmReceived(p.id)}
                       className="mt-2 rounded bg-[#d4f5df] px-3 py-1 text-xs font-semibold text-[#1b5e20] hover:bg-[#bdeccf]"

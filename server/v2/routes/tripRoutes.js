@@ -201,6 +201,29 @@ router.delete("/:tripId/members/:userId", authMiddleware, requireTripOwner, asyn
   }
 });
 
+router.put("/:tripId/members/:userId/email", authMiddleware, requireTripOwner, async (req, res) => {
+  try {
+    const userId = Number(req.params.userId);
+    const rawEmail = req.body?.email;
+    const email = typeof rawEmail === "string" ? rawEmail.trim() : "";
+
+    if (email) {
+      const [exists] = await pool.query(
+        "SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1",
+        [email, userId]
+      );
+      if (exists.length > 0) return res.status(400).json({ message: "Email already used by another member" });
+    }
+
+    const [result] = await pool.query("UPDATE users SET email = ? WHERE id = ?", [email || null, userId]);
+    if (result.affectedRows === 0) return res.status(404).json({ message: "Member not found" });
+
+    return res.json({ message: "Member email updated" });
+  } catch (err) {
+    return res.status(500).json({ message: "Failed to update member email", error: err.message });
+  }
+});
+
 router.get("/:tripId/activity", authMiddleware, requireTripMember, async (req, res) => {
   try {
     const [rows] = await pool.query(
