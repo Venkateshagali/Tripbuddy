@@ -15,14 +15,19 @@ router.get("/my", authMiddleware, async (req, res) => {
          t.cover_image_url, t.name AS title,
          CONCAT(COALESCE(t.destination, ''), ' trip') AS description,
          tm.role,
-         COUNT(DISTINCT tm2.user_id) AS member_count,
-         ROUND(COALESCE(SUM(CASE WHEN e.is_deleted = 0 AND e.include_in_settlement = 1 THEN e.amount ELSE 0 END), 0), 2) AS total_shared_expense
+         (
+           SELECT COUNT(*)
+           FROM trip_members tm2
+           WHERE tm2.trip_id = t.id AND tm2.status = 'approved'
+         ) AS member_count,
+         (
+           SELECT ROUND(COALESCE(SUM(CASE WHEN e.is_deleted = 0 AND e.include_in_settlement = 1 THEN e.amount ELSE 0 END), 0), 2)
+           FROM expenses e
+           WHERE e.trip_id = t.id
+         ) AS total_shared_expense
        FROM trips t
        JOIN trip_members tm ON tm.trip_id = t.id AND tm.user_id = ? AND tm.status = 'approved'
-       LEFT JOIN trip_members tm2 ON tm2.trip_id = t.id AND tm2.status = 'approved'
-       LEFT JOIN expenses e ON e.trip_id = t.id
        WHERE t.deleted_at IS NULL
-       GROUP BY t.id, tm.role
        ORDER BY t.start_date DESC, t.id DESC`,
       [req.user.id]
     );
