@@ -40,6 +40,8 @@ export default function TripDetails() {
 
   const [myUpiId, setMyUpiId] = useState("");
   const [savingUpi, setSavingUpi] = useState(false);
+  const [inviteData, setInviteData] = useState(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   const memberById = useMemo(() => {
     const map = new Map();
@@ -148,6 +150,30 @@ export default function TripDetails() {
       await fetchTrip();
     } finally {
       setSavingUpi(false);
+    }
+  };
+
+  const handleGenerateInvite = async () => {
+    if (!isOwner) return;
+    setInviteLoading(true);
+    try {
+      const res = await api.post(`/api/trips/${id}/invite`, { expiresHours: 168, maxUses: 100 }, authHeader);
+      setInviteData(res.data);
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to generate invite");
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleCopyInvite = async () => {
+    if (!inviteData?.inviteCode) return;
+    const text = `${inviteData.inviteCode}\n${inviteData.inviteLink || ""}`.trim();
+    try {
+      await navigator.clipboard.writeText(text);
+      alert("Invite copied");
+    } catch (_e) {
+      alert("Copy failed");
     }
   };
 
@@ -371,10 +397,37 @@ export default function TripDetails() {
               <p className="text-sm opacity-80">{trip.start_date?.slice(0, 10)} to {trip.end_date?.slice(0, 10)} | {trip.destination}</p>
             </div>
             <div className="flex gap-2">
+              {isOwner ? (
+                <button
+                  onClick={handleGenerateInvite}
+                  className="rounded-xl bg-[#b3652a] px-4 py-2 text-sm font-semibold text-white hover:bg-[#9a5623]"
+                >
+                  {inviteLoading ? "Generating..." : "Share Invite"}
+                </button>
+              ) : null}
               <button onClick={() => setDark((v) => !v)} className="rounded-xl bg-[#e7dcc9] px-4 py-2 text-sm font-semibold text-[#6b3e26] hover:bg-[#dfd1b8]">{dark ? "Light" : "Dark"}</button>
               <button onClick={() => navigate("/dashboard")} className="rounded-xl bg-[#8a5636] px-4 py-2 text-sm font-semibold text-white hover:bg-[#74462b]">Back</button>
             </div>
           </div>
+          {isOwner && inviteData ? (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-white/80 p-3 text-sm">
+              <p className="font-semibold text-[#6b3e26]">Invite Code: {inviteData.inviteCode}</p>
+              <p className="mt-1 break-all text-xs text-slate-700">{inviteData.inviteLink}</p>
+              <div className="mt-2 flex gap-2">
+                <button onClick={handleCopyInvite} className="rounded bg-amber-100 px-3 py-1 text-xs font-semibold hover:bg-amber-200">
+                  Copy
+                </button>
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`Join my TripBuddy trip.\nCode: ${inviteData.inviteCode}\n${inviteData.inviteLink || ""}`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded bg-emerald-100 px-3 py-1 text-xs font-semibold hover:bg-emerald-200"
+                >
+                  Share WhatsApp
+                </a>
+              </div>
+            </div>
+          ) : null}
         </header>
 
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">

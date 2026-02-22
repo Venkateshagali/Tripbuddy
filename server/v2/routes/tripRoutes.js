@@ -50,7 +50,11 @@ router.post("/create", authMiddleware, async (req, res) => {
       [tripId, req.user.id]
     );
 
-    await insertActivityLog(tripId, req.user.id, "trip", tripId, "created", null, { name, destination, startDate, endDate });
+    try {
+      await insertActivityLog(tripId, req.user.id, "trip", tripId, "created", null, { name, destination, startDate, endDate });
+    } catch (_e) {
+      // Keep trip creation successful even if activity table is unavailable.
+    }
 
     return res.json({ message: "Trip created successfully", tripId });
   } catch (err) {
@@ -64,12 +68,16 @@ router.post("/:tripId/invite", authMiddleware, requireTripOwner, async (req, res
     const inviteCode = crypto.randomBytes(6).toString("hex");
     const expiresAt = new Date(Date.now() + Number(expiresHours) * 60 * 60 * 1000);
 
-    await pool.query(
-      `INSERT INTO invites
-       (trip_id, invite_code, created_by, expires_at, max_uses, is_active)
-       VALUES (?, ?, ?, ?, ?, 1)`,
-      [req.tripId, inviteCode, req.user.id, expiresAt, Number(maxUses)]
-    );
+    try {
+      await pool.query(
+        `INSERT INTO invites
+         (trip_id, invite_code, created_by, expires_at, max_uses, is_active)
+         VALUES (?, ?, ?, ?, ?, 1)`,
+        [req.tripId, inviteCode, req.user.id, expiresAt, Number(maxUses)]
+      );
+    } catch (_e) {
+      // Fallback for legacy schema where invites table may not exist.
+    }
 
     await pool.query(
       "UPDATE trips SET invite_code = ?, invite_expires_at = ? WHERE id = ?",
@@ -87,15 +95,29 @@ router.post("/join", authMiddleware, async (req, res) => {
     const { inviteCode } = req.body;
     if (!inviteCode) return res.status(400).json({ message: "inviteCode is required" });
 
-    const [invites] = await pool.query(
-      `SELECT * FROM invites
-       WHERE invite_code = ?
-         AND is_active = 1
-         AND expires_at > NOW()
-         AND used_count < max_uses
-       ORDER BY id DESC LIMIT 1`,
-      [inviteCode]
-    );
+    let invites = [];
+    try {
+      [invites] = await pool.query(
+        `SELECT * FROM invites
+         WHERE invite_code = ?
+           AND is_active = 1
+           AND expires_at > NOW()
+           AND used_count < max_uses
+         ORDER BY id DESC LIMIT 1`,
+        [inviteCode]
+      );
+    } catch (_e) {
+      // Fallback for legacy schema where invites table may not exist.
+      [invites] = await pool.query(
+        `SELECT id AS trip_id, invite_code, invite_expires_at AS expires_at
+         FROM trips
+         WHERE invite_code = ?
+           AND (invite_expires_at IS NULL OR invite_expires_at > NOW())
+         LIMIT 1`,
+        [inviteCode]
+      );
+      invites = invites.map((x) => ({ ...x, id: null }));
+    }
 
     if (invites.length === 0) return res.status(400).json({ message: "Invalid or expired invite" });
 
@@ -116,8 +138,14 @@ router.post("/join", authMiddleware, async (req, res) => {
       );
     }
 
-    await pool.query("UPDATE invites SET used_count = used_count + 1 WHERE id = ?", [invite.id]);
-    await insertActivityLog(invite.trip_id, req.user.id, "member", req.user.id, "joined_trip", null, { inviteCode });
+    if (invite.id) {
+      await pool.query("UPDATE invites SET used_count = used_count + 1 WHERE id = ?", [invite.id]);
+    }
+    try {
+      await insertActivityLog(invite.trip_id, req.user.id, "member", req.user.id, "joined_trip", null, { inviteCode });
+    } catch (_e) {
+      // Keep join-trip flow successful even if activity table is unavailable.
+    }
 
     return res.json({ message: "Joined trip successfully", tripId: invite.trip_id });
   } catch (err) {
@@ -156,7 +184,11 @@ router.delete("/:tripId/members/:userId", authMiddleware, requireTripOwner, asyn
     if (userId === req.user.id) return res.status(400).json({ message: "Owner cannot remove self" });
 
     await pool.query("DELETE FROM trip_members WHERE trip_id = ? AND user_id = ?", [req.tripId, userId]);
-    await insertActivityLog(req.tripId, req.user.id, "member", userId, "removed", null, null);
+    try {
+      await insertActivityLog(req.tripId, req.user.id, "member", userId, "removed", null, null);
+    } catch (_e) {
+      // Keep member removal successful even if activity table is unavailable.
+    }
 
     return res.json({ message: "Member removed" });
   } catch (err) {
