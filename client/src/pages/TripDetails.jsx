@@ -249,6 +249,10 @@ export default function TripDetails() {
   const totalShared = Number(summary?.total_shared || 0);
   const totalPersonal = Number(summary?.total_personal || 0);
   const isOwner = membership?.role === "owner";
+  const myBalance = balances.find((b) => Number(b.id) === Number(me?.id));
+  const myPendingToPay = Math.max(0, Number(-(myBalance?.netBalance || 0)));
+  const myReceivable = Math.max(0, Number(myBalance?.netBalance || 0));
+  const totalPendingAmount = settlement.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
   const tripTheme = dark
     ? "bg-slate-950 text-slate-100"
     : "text-slate-900";
@@ -531,10 +535,13 @@ export default function TripDetails() {
               <div className="space-y-2">
                 {members.map((m) => {
                   const bal = balances.find((b) => b.id === m.id);
+                  const pending = Math.max(0, Number(-(bal?.netBalance || 0)));
+                  const receivable = Math.max(0, Number(bal?.netBalance || 0));
                   return (
                     <button key={m.id} onClick={() => openMemberDetails(m)} className="w-full rounded-xl border border-[#eadfcf] bg-[#fffefb] p-3 text-left hover:border-[#c99974]">
                       <p className="font-semibold">{m.name}</p>
                       <p className="text-xs text-gray-500">Net: INR {Number(bal?.netBalance || 0).toFixed(2)} | Paid: INR {Number(bal?.totalPaid || 0).toFixed(2)}</p>
+                      <p className="text-xs text-gray-500">Pending: INR {pending.toFixed(2)} | Receivable: INR {receivable.toFixed(2)}</p>
                     </button>
                   );
                 })}
@@ -551,13 +558,35 @@ export default function TripDetails() {
                       <StatMini label="Shared Due" value={`INR ${Number(memberDetails.totals.shared).toFixed(2)}`} />
                       <StatMini label="Personal" value={`INR ${Number(memberDetails.totals.personal).toFixed(2)}`} />
                     </div>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <StatMini
+                        label="Pending To Pay"
+                        value={`INR ${Math.max(0, Number(-(balances.find((b) => Number(b.id) === Number(selectedMember.id))?.netBalance || 0))).toFixed(2)}`}
+                      />
+                      <StatMini
+                        label="Receivable"
+                        value={`INR ${Math.max(0, Number(balances.find((b) => Number(b.id) === Number(selectedMember.id))?.netBalance || 0)).toFixed(2)}`}
+                      />
+                    </div>
                     <div>
                       <h4 className="mb-2 font-semibold">What they paid</h4>
                       {memberDetails.paidExpenses.map((e) => <p key={e.id} className="text-sm">{e.title} - INR {Number(e.amount).toFixed(2)}</p>)}
+                      {memberDetails.paidExpenses.length === 0 ? <p className="text-sm text-gray-500">No direct expenses paid.</p> : null}
                     </div>
                     <div>
                       <h4 className="mb-2 font-semibold">Their splits</h4>
                       {memberDetails.splits.map((s) => <p key={s.id} className="text-sm">{s.title}: INR {Number(s.share_amount).toFixed(2)}</p>)}
+                      {memberDetails.splits.length === 0 ? <p className="text-sm text-gray-500">No splits found.</p> : null}
+                    </div>
+                    <div>
+                      <h4 className="mb-2 font-semibold">Payment History (This Member)</h4>
+                      {payments
+                        .filter((p) => Number(p.from_user_id) === Number(selectedMember.id) || Number(p.to_user_id) === Number(selectedMember.id))
+                        .map((p) => (
+                          <p key={p.id} className="text-sm">
+                            {p.from_name} {"->"} {p.to_name}: INR {Number(p.amount).toFixed(2)} ({p.status})
+                          </p>
+                        ))}
                     </div>
                   </div>
                 ) : null}
@@ -569,6 +598,11 @@ export default function TripDetails() {
         {activeTab === "Settlements" && (
           <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <Panel title="Recommended Settlements">
+              <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <StatMini label="My Pending" value={`INR ${myPendingToPay.toFixed(2)}`} />
+                <StatMini label="My Receivable" value={`INR ${myReceivable.toFixed(2)}`} />
+                <StatMini label="Total Pending" value={`INR ${Number(totalPendingAmount || 0).toFixed(2)}`} />
+              </div>
               {settlement.length === 0 ? <p className="text-sm text-gray-500">No pending settlements.</p> : null}
               {settlement.map((tx, i) => {
                 const payee = memberById.get(Number(tx.toUserId));
@@ -585,6 +619,7 @@ export default function TripDetails() {
               })}
             </Panel>
             <Panel title="My UPI + Payment History">
+              <p className="mb-2 text-xs text-gray-500">Owner can click "Approve Received" when member marks payment as paid.</p>
               <div className="mb-4 flex gap-2">
                 <input className="input" placeholder="your-upi@bank (optional)" value={myUpiId} onChange={(e) => setMyUpiId(e.target.value)} />
                 <button onClick={saveMyUpi} disabled={savingUpi} className="btn-primary">Save UPI</button>
