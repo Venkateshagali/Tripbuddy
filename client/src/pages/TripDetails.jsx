@@ -249,9 +249,12 @@ export default function TripDetails() {
   const totalShared = Number(summary?.total_shared || 0);
   const totalPersonal = Number(summary?.total_personal || 0);
   const isOwner = membership?.role === "owner";
-  const myBalance = balances.find((b) => Number(b.id) === Number(me?.id));
-  const myPendingToPay = Math.max(0, Number(-(myBalance?.netBalance || 0)));
-  const myReceivable = Math.max(0, Number(myBalance?.netBalance || 0));
+  const myPendingToPay = settlement
+    .filter((tx) => Number(tx.fromUserId) === Number(me?.id))
+    .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  const myReceivable = settlement
+    .filter((tx) => Number(tx.toUserId) === Number(me?.id))
+    .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
   const totalPendingAmount = settlement.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
   const tripTheme = dark
     ? "bg-slate-950 text-slate-100"
